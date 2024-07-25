@@ -20,4 +20,18 @@ app.post('/create', async (req, res) => {
     }
 });
 
+app.get('/list', async (req, res) => {
+    try {
+        const data = await prisma.product.findMany({
+            orderBy: {
+                id: 'desc'  //descending
+            }
+        })
+
+        res.send({ results: data })
+    } catch (e) {
+        res.status(500).send({ error: e.message });
+    }
+})
+
 module.exports = app;
