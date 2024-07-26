@@ -25,10 +25,45 @@ app.get('/list', async (req, res) => {
         const data = await prisma.product.findMany({
             orderBy: {
                 id: 'desc'  //descending
+            },
+            where: {
+                status: 'use'
             }
         })
 
         res.send({ results: data })
+    } catch (e) {
+        res.status(500).send({ error: e.message });
+    }
+})
+
+app.delete('/remove/:id', async (req, res) => {
+    try {
+        await prisma.product.update({
+            data: {
+                status: 'delete'
+            },
+            where: {
+                id: parseInt(req.params.id)
+            }
+        })
+
+        res.send({ message: 'success' })
+    } catch (e) {
+        res.status(500).send({ error: e.message });
+    }
+})
+
+app.put('/update', async (req, res) => {
+    try {
+        await prisma.product.update({
+            data: req.body,
+            where: {
+                id: parseInt(req.body.id)
+            }
+        });
+
+        res.send({ message: 'success' });
     } catch (e) {
         res.status(500).send({ error: e.message });
     }
