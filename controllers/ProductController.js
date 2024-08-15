@@ -5,10 +5,12 @@ const prisma = new PrismaClient();
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const fileUpload = require('express-fileupload');
+const exceljs = require('exceljs');
 
 dotenv.config();
 
-const userController = require('./UserController')
+const userController = require('./UserController');
+const { request } = require('http');
 
 app.use(fileUpload());
 app.post('/create', async (req, res) => {
@@ -59,6 +61,20 @@ app.delete('/remove/:id', async (req, res) => {
 
 app.put('/update', async (req, res) => {
     try {
+        const fs = require('fs');
+        const oldData = await prisma.product.findFirst({
+            where: {
+                id: parseInt(req.body.id)
+            }
+        });
+
+        //remove old image
+        const imagePath = './uploads/' + oldData.img;
+
+        if(fs.existsSync(imagePath)) {
+            await fs.unlinkSync(imagePath);
+        }
+
         await prisma.product.update({
             data: req.body,
             where: {
@@ -103,6 +119,47 @@ app.post('/upload', async (req, res) => {
         }
     } catch (e) {
         res.status(500).send({ error: e.message });
+    }
+})
+
+app.post('/uploadFromExcel', (req, res) => {
+    try {
+        const fileExcel = req.files.fileExcel;
+
+        fileExcel.mv('./uploads/' + fileExcel.name, async (err) => {
+            if (err) throw err;
+
+            //read from file and insert to database
+            const workbook = new exceljs.Workbook();
+            await workbook.xlsx.readFile('./uploads/' + fileExcel.name);
+
+            const ws = workbook.getWorksheet(1);
+
+            for(let i = 2; i <= ws.rowCount; i++) {
+                const name = ws.getRow(i).getCell(1).value ?? ""; //if null or undefined return ""
+                const cost = ws.getRow(i).getCell(2).value ?? 0;
+                const price = ws.getRow(i).getCell(3).value ?? 0;
+                
+                if (name != "" && cost >= 0 && price >= 0){
+                    await prisma.product.create({
+                        data: {
+                            name: name,
+                            cost: cost,
+                            price: price,
+                            img: ''
+                        }
+                    })
+                }
+            }
+
+            //remove file from server
+            const fs = require('fs');
+            await fs.unlinkSync('./uploads/' + fileExcel.name);
+
+            res.send({ message: 'success'});
+        })
+    } catch (e) {
+        res.status(500).send({ error: e.message});
     }
 })
 
